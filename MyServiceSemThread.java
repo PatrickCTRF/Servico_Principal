@@ -10,12 +10,15 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Calendar;
 
 import static android.widget.Toast.LENGTH_LONG;
+import static java.lang.Double.parseDouble;
 
 /*
 
@@ -31,9 +34,6 @@ Talvez seja necessário habilitar também o envio deste ara algum Log.v para o c
 
 public class MyServiceSemThread extends Service {
 
-
-    private Calendar rightNow = Calendar.getInstance();
-
     final Handler handler = new Handler();
     final AquisicaoSensores info = new AquisicaoSensores(this);
     /*final EditText editTextAddress1 = MainActivity.editTextAddress;
@@ -44,6 +44,10 @@ public class MyServiceSemThread extends Service {
     TextView response = response1;
     boolean atualiza_home = MainActivity.atualiza_home;*/
     double home_latitude = 0, home_longitude = 0;
+    double margemDeErroHome = 2;
+    String ip = "192.168.0.105", aux = null, aux2 = null;
+    int porta = 6789;
+
 
 
     //Obtém sua localizção atual
@@ -71,7 +75,10 @@ public class MyServiceSemThread extends Service {
             @Override
             public void run() {
 
-                Log.v("SERVICO PRINCPAL BOOT", "O serviço principal foi chamado no boot." + contador);
+                Log.v("SERVICO PRINCPAL BOOT", "O serviço principal foi chamado." + contador);
+
+
+
 
                 /*if(MainActivity.atualiza_home){
                     //if(MainActivity.atualiza_home != null){//   VERIFICAR SE ISTO DÁ ERRADO COM O MAINACTIVITY FECHADO. QUALQUER COISA, SALVA ESTA INFO NUM TXT.
@@ -95,15 +102,65 @@ public class MyServiceSemThread extends Service {
 
                 Calendar calendario = Calendar.getInstance();
 
-                File arquivo = new File(Environment.getExternalStorageDirectory().toString() + "/" + "_InformacoesDaVidaDoUsuario.txt");
+                File arquivoDados = new File(Environment.getExternalStorageDirectory().toString() + "/" + "_InformacoesDaVidaDoUsuario.txt");
+
+                File arquivoHome = new File(Environment.getExternalStorageDirectory().toString() + "/" + "Latitude_Longitude_Home.txt");
 
                 try {
-                    FileWriter escritor = new FileWriter(arquivo, false);
 
-                    escritor.write("\n\nTempo atual: " + calendario.get(Calendar.HOUR) + ":" + calendario.get(Calendar.MINUTE) + ":" + calendario.get(Calendar.SECOND) + "," + calendario.get(Calendar.MILLISECOND) + "\n" + info.getInfo() + "\n\n" + locationListener.getMyLocation() + "\n----------------\n");
+                    BufferedReader bufferLeitura = new BufferedReader(new FileReader(arquivoHome));
+
+                    home_latitude = parseDouble(bufferLeitura.readLine());
+                    home_longitude = parseDouble(bufferLeitura.readLine());
+                    bufferLeitura.close();
+
+                    FileWriter escritor;
+
+                    if(Math.pow(margemDeErroHome, 2) >= Math.pow((locationListener.getLatitude()-home_latitude),2)+Math.pow((locationListener.getLongitude()-home_longitude),2)) {
+                    //Se houver condição de enviar os dados ao servidor, envie todos os dados disponíveis.
+                        Log.v("HOMEinfo", "ESTÁ NA HOME");
+
+                        BufferedReader leituraDados = new BufferedReader(new FileReader(arquivoDados));
+
+                        Client myClient;
+                        if ((aux = leituraDados.readLine()) != null) {//Se o arquivo nao estiver vazio...
+
+                            Log.v("SERVIDOR", "DADOS SALVOS ENVIANDO");
+
+                            while((aux2 = leituraDados.readLine()) != null){//Leia tudo que está no arquivo.
+                                aux = "\n" + aux2;
+                                aux2 = null;
+                            }
+
+                            myClient = new Client(ip, porta, aux + info.getInfo());//Envie para o servidor os dados que estavam salvos.
+                            myClient.execute();
+                            //myClient.setInfo(info.getInfo());//Agora envie os dados atuais.
+                            //myClient.execute();
+
+                            escritor = new FileWriter(arquivoDados, false);//apaga o buffer de dados e o fecha.
+                            escritor.write("");
+                            escritor.close();
 
 
-                    escritor.close();
+                        }else{//Se o arquivo estiver vazio...
+
+                            Log.v("SERVIDOR", "DADOS ENVIANDO");
+
+                            myClient = new Client(ip, porta, info.getInfo());//Envia somente os dados atuais.
+                            myClient.execute();
+
+                        }
+
+
+                    }else{//Se nao houver condições de enviar ao servidor, guarde os dados num arquivo.
+                        Log.v("HOMEinfo", "NÃO ESTÁ NA HOME");
+
+                        escritor = new FileWriter(arquivoDados, true);
+                        escritor.write("\n\nTempo atual: " + calendario.get(Calendar.HOUR) + ":" + calendario.get(Calendar.MINUTE) + ":" + calendario.get(Calendar.SECOND) + "," + calendario.get(Calendar.MILLISECOND) + "\n" + info.getInfo() + "\n\n" + locationListener.getMyLocation() + "\n----------------\n");
+                        escritor.close();
+
+                    }
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -121,10 +178,11 @@ public class MyServiceSemThread extends Service {
     @Override
     public void onDestroy() {
 
-        super.onDestroy();
-        handler.removeCallbacks(runnableCode);
+        locationListener.removeListener();//Deixa de requisitar atualizações ao sistema e remove este listener. Economiza energia.
+        info.onDestroy();//Deixa de requisitar atualizações ao sistema e remove os listener. Economiza energia e evita relatório de erros.
+        handler.removeCallbacks(runnableCode);//Retira todas as chamadas agendadas deste serviço.
         Toast.makeText(this, "Service Destroyed", LENGTH_LONG).show();
-
+        super.onDestroy();
     }
 
 }

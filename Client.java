@@ -15,19 +15,33 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Calendar;
 
+//IP atual: 192.168.1.108;192.168.0.105
+
 public class Client extends AsyncTask<Void, Void, Void> {
 
     String dstAddress;
     int dstPort;
     String response = "";
     TextView textResponse;
-    final AquisicaoSensores info;
+    String info;
     Calendar calendario = Calendar.getInstance();
 
-    Client(String addr, int port, TextView textResponse, AquisicaoSensores info) {//addr é relativo a address = endereço web.
+
+    Client(String addr, int port, TextView textResponse, String info) {//addr é relativo a address = endereço web.
         dstAddress = addr;
         dstPort = port;
         this.textResponse = textResponse;
+        this.info = info;
+    }
+
+    Client(String addr, int port, String info) {//addr é relativo a address = endereço web.
+        dstAddress = addr;
+        dstPort = port;
+        this.textResponse = null;
+        this.info = info;
+    }
+
+    public void setInfo(String info) {
         this.info = info;
     }
 
@@ -39,43 +53,17 @@ public class Client extends AsyncTask<Void, Void, Void> {
         try {
             socket = new Socket(dstAddress, dstPort);
 
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(1024);
-            byte[] buffer = new byte[1024];
-
-            String bytesRead = null;
+            String bytesFromServersStringRead = null;
             BufferedReader inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-
-            File arquivo = new File(Environment.getExternalStorageDirectory().toString() + "/teste_Servidor.txt");
-            FileWriter escritor = new FileWriter(arquivo, true);
-
             calendario = Calendar.getInstance();
-            escritor.write("\n\nTempo do Celular no início da transmissao: " + calendario.get(Calendar.HOUR) + ":" + calendario.get(Calendar.MINUTE) + ":" + calendario.get(Calendar.SECOND) + "," + calendario.get(Calendar.MILLISECOND) + "\n");
             socket.getOutputStream().write(("" + calendario.get(Calendar.HOUR) + ":" + calendario.get(Calendar.MINUTE) + ":" + calendario.get(Calendar.SECOND) + "," + calendario.get(Calendar.MILLISECOND) + "\n").getBytes());
+            socket.getOutputStream().write((info + "\nFIM\n").getBytes());
 
-            calendario = Calendar.getInstance();
-            escritor.write("\n\nTempo no Celular antes de enviar os dados: " + calendario.get(Calendar.HOUR) + ":" + calendario.get(Calendar.MINUTE) + ":" + calendario.get(Calendar.SECOND) + "," + calendario.get(Calendar.MILLISECOND) + "\n");
-            socket.getOutputStream().write((info.getInfo() + "\nFIM\n").getBytes());
-
-            calendario = Calendar.getInstance();
-            escritor.write("\n\nTempo no Celular depois de enviar os dados: " + calendario.get(Calendar.HOUR) + ":" + calendario.get(Calendar.MINUTE) + ":" + calendario.get(Calendar.SECOND) + "," + calendario.get(Calendar.MILLISECOND) + "\n");
-            escritor.write("\n\n-------------------------\n\n");
-
-
-                    //while ((bytesRead = inputStream.readLine()) != null) {
-            bytesRead = inputStream.readLine();
-            //socket.getOutputStream().write(get,0,"GET".length());//socket.getOutputStream().write(buffer, 0, bytesRead);
-            //inputStream.read(buffer);
-            //byteArrayOutputStream.write(buffer, 0, bytesRead);
-            response += bytesRead;
-            //byteArrayOutputStream.toString("UTF-8");
-           // }
+            bytesFromServersStringRead = inputStream.readLine();
+            response += bytesFromServersStringRead;
 
             Log.d("GOOGLE GOOGLE says:", response);
-
-            //response += "sem retorno\n";
-
-            escritor.close();
 
         } catch (UnknownHostException e) {
             // TODO Auto-generated catch block
@@ -100,7 +88,7 @@ public class Client extends AsyncTask<Void, Void, Void> {
 
     @Override
     protected void onPostExecute(Void result) {
-        textResponse.setText(response);
+        if(textResponse != null) textResponse.setText(response);
         super.onPostExecute(result);
     }
 

@@ -17,7 +17,7 @@ import android.util.Log;
 public class Localizador extends ContextWrapper implements LocationListener {
 
     private boolean registrou_manager;//Esta variável evita que fiquemos registrando o anager vaárias vezes a cada chamada de mgetmylocation.
-                            //1 == registrado, 0 == nao registrado.
+    //1 == registrado, 0 == nao registrado.
     private String myLocation;//Um string que guarda a nossa posição atual em forma de texto para facilitar a escrita em arquivo.
     private LocationManager locationManager;//Este é o manager que usaremos para solicitar acesso à localizaçãoes.
     private double latitude;
@@ -38,8 +38,8 @@ public class Localizador extends ContextWrapper implements LocationListener {
 
     @Override
     public void onLocationChanged(Location location) {
-       latitude = location.getLatitude();
-       longitude = location.getLongitude();
+        latitude = location.getLatitude();
+        longitude = location.getLongitude();
         aguardando_coordenadas = false;//Nao esta mais esperando pra receber  as coodenadas.
 
         myLocation = "Latitude = " + location.getLatitude() + " Longitude = " + location.getLongitude() + " Incerteza = " + location.getAccuracy();
@@ -56,8 +56,8 @@ public class Localizador extends ContextWrapper implements LocationListener {
 
     public String getMyLocation() {
 
-        
-        if(!registrou_manager) {
+
+        if (!registrou_manager) {
             locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
 
@@ -73,6 +73,10 @@ public class Localizador extends ContextWrapper implements LocationListener {
 
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);//Solicita atualizações de localização por WiFi para este listener (o próprio  obeto instanciado a partir desta classe).
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);//Solicita atualizações de localização por GPS para este listener (o próprio  obeto instanciado a partir desta classe).
+
+            registrou_manager = !registrou_manager;
+
+            Log.v("LISTENER", "listener REGISTRADO");
         }
 
         return myLocation;
@@ -86,6 +90,23 @@ public class Localizador extends ContextWrapper implements LocationListener {
     @Override
     public void onProviderDisabled(String s) {
 
+    }
+
+    public void removeListener() {//Deixa de requisitar atualizações ao sistema e remove este listener. Economiza energia.
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+
+        Log.v("LISTENER", "listener REMOVIDO");
+        locationManager.removeUpdates(this);
     }
 
     public Localizador(Context base) {//Este construtor já registra o próprio onjeto como locationListener.
